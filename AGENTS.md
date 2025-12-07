@@ -21,6 +21,11 @@
 - Use `ruff` for linting and formatting (line length 88)
 - Prefer explicit over implicit; avoid bare `except:`
 
+## Data & Visualization
+- Always use `polars` for DataFrames (not pandas)
+- Always use `altair` for plotting
+- Add well-formatted tooltips to charts when possible
+
 ## Marimo Notebooks
 - Import as `import marimo as mo`
 - Use `@app.cell` decorator for cells
