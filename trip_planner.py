@@ -355,14 +355,19 @@ def _(gas_price_slider, get_legs, mo, set_legs):
     legs_display = []
     for i, leg in enumerate(current_legs):
         remove_btn = mo.ui.button(label="❌", on_click=make_remove_handler(i))
-        leg_info = (
-            f"**{leg['name']}**: {leg['distance_km']}km, {leg['travel_time_hours']}h"
+        leg_content = mo.vstack(
+            [
+                mo.md(f"**{leg['name']}**"),
+                mo.md(f"📏 {leg['distance_km']}km · ⏱️ {leg['travel_time_hours']}h"),
+                mo.md(f"🛏️ ${leg['sleeping_cost']} · 🍔 ${leg['food_cost']}"),
+            ],
+            gap=0,
         )
-        leg_costs = f"🛏️ ${leg['sleeping_cost']} | 🍔 ${leg['food_cost']}"
         legs_display.append(
             mo.hstack(
-                [mo.md(f"{leg_info} — {leg_costs}"), remove_btn],
+                [leg_content, remove_btn],
                 justify="space-between",
+                align="start",
             )
         )
 
