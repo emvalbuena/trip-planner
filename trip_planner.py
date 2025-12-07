@@ -252,15 +252,12 @@ def _(mo):
     get_refresh, set_refresh = mo.state(0)
     get_legs, set_legs = mo.state([])
     get_preview_id, set_preview_id = mo.state(None)
-    get_editing_leg_idx, set_editing_leg_idx = mo.state(None)
     return (
         get_edit_id,
-        get_editing_leg_idx,
         get_legs,
         get_preview_id,
         get_refresh,
         set_edit_id,
-        set_editing_leg_idx,
         set_legs,
         set_preview_id,
         set_refresh,
@@ -388,10 +385,9 @@ def _(
     fuel_price_slider,
     get_legs,
     mo,
-    set_editing_leg_idx,
     set_legs,
 ):
-    # Display current legs with edit/remove buttons
+    # Display current legs with remove buttons
     current_legs = get_legs()
 
     def make_remove_handler(idx):
@@ -401,15 +397,8 @@ def _(
 
         return handler
 
-    def make_edit_handler(idx):
-        def handler(_):
-            set_editing_leg_idx(idx)
-
-        return handler
-
     legs_display = []
     for i, leg in enumerate(current_legs):
-        edit_btn = mo.ui.button(label="✏️", on_click=make_edit_handler(i))
         remove_btn = mo.ui.button(label="❌", on_click=make_remove_handler(i))
         leg_content = mo.vstack(
             [
@@ -421,7 +410,7 @@ def _(
         )
         legs_display.append(
             mo.hstack(
-                [leg_content, mo.hstack([edit_btn, remove_btn], gap=0.25)],
+                [leg_content, remove_btn],
                 justify="space-between",
                 align="start",
             )
@@ -448,7 +437,6 @@ def _(
         fuel_cost,
         legs_display,
         legs_summary,
-        make_edit_handler,
         make_remove_handler,
         total_cost,
         total_food,
@@ -456,87 +444,6 @@ def _(
         total_km,
         total_sleeping,
     )
-
-
-@app.cell
-def _(get_editing_leg_idx, get_legs, mo, set_editing_leg_idx, set_legs):
-    # Leg edit modal
-    _editing_idx = get_editing_leg_idx()
-    _legs = get_legs()
-
-    if _editing_idx is not None and _editing_idx < len(_legs):
-        _leg = _legs[_editing_idx]
-
-        # Create edit form inputs
-        edit_leg_name = mo.ui.text(
-            value=_leg["name"],
-            label="📍 Leg Name",
-            full_width=True,
-        )
-        edit_leg_distance = mo.ui.number(
-            value=_leg["distance_km"],
-            start=0,
-            step=10,
-            label="📏 Distance (km)",
-        )
-        edit_leg_time = mo.ui.number(
-            value=_leg["travel_time_hours"],
-            start=0,
-            step=0.5,
-            label="⏱️ Travel Time (hours)",
-        )
-        edit_leg_sleeping = mo.ui.number(
-            value=_leg["sleeping_cost"],
-            start=0,
-            step=10,
-            label="🛏️ Sleeping Cost (€)",
-        )
-        edit_leg_food = mo.ui.number(
-            value=_leg["food_cost"],
-            start=0,
-            step=10,
-            label="🍔 Food Cost (€)",
-        )
-
-        def save_leg_edit(_):
-            idx = get_editing_leg_idx()
-            if idx is not None:
-                legs = get_legs()
-                legs[idx] = {
-                    "name": edit_leg_name.value.strip() or _leg["name"],
-                    "distance_km": edit_leg_distance.value,
-                    "travel_time_hours": edit_leg_time.value,
-                    "sleeping_cost": edit_leg_sleeping.value,
-                    "food_cost": edit_leg_food.value,
-                }
-                set_legs(legs)
-                set_editing_leg_idx(None)
-
-        def cancel_leg_edit(_):
-            set_editing_leg_idx(None)
-
-        save_edit_btn = mo.ui.button(
-            label="💾 Save", kind="success", on_click=save_leg_edit
-        )
-        cancel_edit_btn = mo.ui.button(label="❌ Cancel", on_click=cancel_leg_edit)
-
-        edit_modal_content = mo.vstack(
-            [
-                mo.md(f"## ✏️ Edit Leg"),
-                edit_leg_name,
-                edit_leg_distance,
-                edit_leg_time,
-                edit_leg_sleeping,
-                edit_leg_food,
-                mo.hstack([save_edit_btn, cancel_edit_btn], gap=0.5),
-            ],
-            gap=0.5,
-        )
-
-        mo.callout(edit_modal_content, kind="warn")
-    else:
-        mo.md("")
-    return
 
 
 @app.cell
