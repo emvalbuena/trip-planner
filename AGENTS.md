@@ -2,6 +2,7 @@
 
 ## Workflow
 - Always commit after making changes
+- Always run tests after making changes: `uv run pytest`
 
 ## Build/Test Commands
 - Install deps: `uv sync`

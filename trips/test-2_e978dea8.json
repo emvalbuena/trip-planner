@@ -1,0 +1,28 @@
+{
+  "name": "TEST 2",
+  "legs": [
+    {
+      "name": "Primer d\u00eda",
+      "distance_km": 350,
+      "travel_time_hours": 3.5
+    },
+    {
+      "name": "Segundo d\u00eda",
+      "distance_km": 350,
+      "travel_time_hours": 2.5
+    }
+  ],
+  "gas_price_per_liter": 1.6,
+  "fuel_consumption_per_100km": 6,
+  "price_sleeping": 0,
+  "price_food": 0,
+  "activities": [
+    "duraton"
+  ],
+  "booking_urls": [],
+  "id": "e978dea8-75f0-4288-9a33-4302d577bdbb",
+  "total_distance_km": 700,
+  "total_travel_time_hours": 6.0,
+  "fuel_cost": 67.2,
+  "total_price": 67.2
+}

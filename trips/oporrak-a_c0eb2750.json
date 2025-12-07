@@ -1,0 +1,43 @@
+{
+  "name": "Oporrak A",
+  "legs": [
+    {
+      "name": "Ir a Bizkaia",
+      "distance_km": 100,
+      "travel_time_hours": 1.5,
+      "sleeping_cost": 350,
+      "food_cost": 0
+    },
+    {
+      "name": "Mago de Hoz",
+      "distance_km": 140,
+      "travel_time_hours": 2,
+      "sleeping_cost": 0,
+      "food_cost": 100
+    },
+    {
+      "name": "Bajar a Madrid",
+      "distance_km": 460,
+      "travel_time_hours": 5,
+      "sleeping_cost": 0,
+      "food_cost": 0
+    },
+    {
+      "name": "Subir a Madrid",
+      "distance_km": 420,
+      "travel_time_hours": 4,
+      "sleeping_cost": 0,
+      "food_cost": 0
+    }
+  ],
+  "fuel_price_per_100km": 1.65,
+  "activities": [],
+  "booking_urls": [],
+  "id": "c0eb2750-3901-4e0d-a17e-20fc76a5303e",
+  "total_distance_km": 1120,
+  "total_travel_time_hours": 12.5,
+  "fuel_cost": 18.479999999999997,
+  "total_sleeping_cost": 350,
+  "total_food_cost": 100,
+  "total_price": 468.48
+}

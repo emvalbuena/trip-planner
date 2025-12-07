@@ -1,0 +1,20 @@
+{
+  "name": "TEST",
+  "travel_time_hours": 4,
+  "price": {
+    "fuel": 60,
+    "sleeping": 540,
+    "food": 80
+  },
+  "activities": [
+    "go hiking",
+    "make love to nagore",
+    "eat"
+  ],
+  "booking_urls": [
+    "https://www.booking.com/searchresults.es.html?ss=Trespaderne&ssne=Trespaderne&ssne_untouched=Trespaderne&highlighted_hotels=11224345&efdco=1&label=gen173nr-10CAEoggI46AdIM1gEaEaIAQGYATO4AQfIAQzYAQPoAQH4AQGIAgGoAgG4Atzw1ckGwAIB0gIkNDZmNDNlYjItYWNkNS00YTY5LTg1MzktYWVlMjM3NTRlMjA02AIB4AIB&sid=cf68e6f233b82674ec38221d8764c848&aid=304142&lang=es&sb=1&src_elem=sb&src=hotel&dest_id=-394531&dest_type=city&checkin=2026-01-02&checkout=2026-01-04&group_adults=2&no_rooms=1&group_children=0",
+    "https://www.booking.com/searchresults.es.html?label=gen173nr-10CAEoggI46AdIM1gEaEaIAQGYATO4AQfIAQzYAQPoAQH4AQGIAgGoAgG4Atzw1ckGwAIB0gIkNDZmNDNlYjItYWNkNS00YTY5LTg1MzktYWVlMjM3NTRlMjA02AIB4AIB&sid=cf68e6f233b82674ec38221d8764c848&aid=304142&ss=O%C3%B1a&ssne=O%C3%B1a&ssne_untouched=O%C3%B1a&efdco=1&lang=es&sb=1&src_elem=sb&dest_id=-394531&dest_type=city&checkin=2026-01-02&checkout=2026-01-04&group_adults=2&no_rooms=1&group_children=0&order=price#map_opened"
+  ],
+  "id": "2cac5996-bf98-451a-b905-abbdab533e52",
+  "total_price": 680
+}
