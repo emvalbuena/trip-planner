@@ -14,3 +14,8 @@ select = ["E", "F", "I", "UP"]
 
 [tool.pyright]
 pythonVersion = "3.13"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.8",
+]

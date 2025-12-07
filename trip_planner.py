@@ -1,6 +1,5 @@
 import marimo
 
-__generated_with = "0.10.0"
 app = marimo.App(width="medium")
 
 
@@ -43,7 +42,7 @@ def _(dataclass, field, uuid):
     class Trip:
         name: str
         legs: list[Leg] = field(default_factory=list)
-        gas_price_per_km: float = 0.15
+        gas_price: float = 0.0
         activities: list[str] = field(default_factory=list)
         booking_urls: list[str] = field(default_factory=list)
         id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -58,7 +57,7 @@ def _(dataclass, field, uuid):
 
         @property
         def fuel_cost(self) -> float:
-            return self.total_distance_km * self.gas_price_per_km
+            return self.gas_price * self.total_distance_km
 
         @property
         def total_sleeping_cost(self) -> float:
@@ -136,7 +135,7 @@ def _(Leg, Path, Trip, asdict, json, re):
                     food_cost=old_price.get("food", 0),
                 )
             ]
-            return Trip(legs=legs, gas_price_per_km=0.15, **data)
+            return Trip(legs=legs, gas_price=0.0, **data)
 
         # Handle legacy format (v2: trip-level costs)
         if "price_sleeping" in data or "price_food" in data:
@@ -144,6 +143,7 @@ def _(Leg, Path, Trip, asdict, json, re):
             food = data.pop("price_food", 0)
             data.pop("gas_price_per_liter", None)
             data.pop("fuel_consumption_per_100km", None)
+            data.pop("gas_price_per_km", None)
             legs_data = data.pop("legs", [])
             # Distribute costs to first leg or create one
             if legs_data:
@@ -159,7 +159,7 @@ def _(Leg, Path, Trip, asdict, json, re):
                 )
                 for leg in legs_data
             ]
-            return Trip(legs=legs, gas_price_per_km=0.15, **data)
+            return Trip(legs=legs, gas_price=0.0, **data)
 
         # Current format
         legs_data = data.pop("legs", [])
@@ -266,13 +266,11 @@ def _(editing_trip, mo):
         label="🏷️ Trip Name",
         full_width=True,
     )
-    gas_price_slider = mo.ui.slider(
-        value=editing_trip.gas_price_per_km if editing_trip else 0.15,
-        start=0.05,
-        stop=0.50,
+    gas_price_input = mo.ui.number(
+        value=editing_trip.gas_price if editing_trip else 0.0,
+        start=0,
         step=0.01,
-        label="⛽ Gas Price ($/km)",
-        show_value=True,
+        label="⛽ Gas Price ($)",
     )
     activities_input = mo.ui.text_area(
         value=", ".join(editing_trip.activities) if editing_trip else "",
@@ -289,7 +287,7 @@ def _(editing_trip, mo):
         activities_input,
         booking_urls_input,
         form_title,
-        gas_price_slider,
+        gas_price_input,
         name_input,
         save_button,
     )
@@ -341,7 +339,7 @@ def _(get_legs, mo, set_legs):
 
 
 @app.cell
-def _(gas_price_slider, get_legs, mo, set_legs):
+def _(gas_price_input, get_legs, mo, set_legs):
     # Display current legs with remove buttons
     current_legs = get_legs()
 
@@ -375,7 +373,7 @@ def _(gas_price_slider, get_legs, mo, set_legs):
     total_hours = sum(leg["travel_time_hours"] for leg in current_legs)
     total_sleeping = sum(leg["sleeping_cost"] for leg in current_legs)
     total_food = sum(leg["food_cost"] for leg in current_legs)
-    fuel_cost = total_km * gas_price_slider.value
+    fuel_cost = total_km * gas_price_input.value
     total_cost = fuel_cost + total_sleeping + total_food
 
     legs_summary = (
@@ -407,7 +405,7 @@ def _(
     booking_urls_input,
     clear_legs_button,
     form_title,
-    gas_price_slider,
+    gas_price_input,
     leg_distance_input,
     leg_food_input,
     leg_name_input,
@@ -425,7 +423,7 @@ def _(
             mo.md(f"## {form_title}"),
             name_input,
             mo.md("### 🛣️ Trip Legs"),
-            mo.hstack(
+            mo.vstack(
                 [
                     leg_name_input,
                     leg_distance_input,
@@ -434,15 +432,16 @@ def _(
                     leg_food_input,
                     add_leg_button,
                 ],
-                justify="start",
-                gap=0.5,
+                gap=0.25,
             ),
             mo.vstack(legs_display, gap=0.25) if legs_display else mo.md(""),
-            mo.hstack([legs_summary, clear_legs_button], justify="space-between")
-            if legs_display
-            else legs_summary,
+            (
+                mo.hstack([legs_summary, clear_legs_button], justify="space-between")
+                if legs_display
+                else legs_summary
+            ),
             mo.md("### ⚙️ Settings"),
-            gas_price_slider,
+            gas_price_input,
             activities_input,
             booking_urls_input,
             save_button,
@@ -459,7 +458,7 @@ def _(
     activities_input,
     booking_urls_input,
     editing_trip,
-    gas_price_slider,
+    gas_price_input,
     get_legs,
     get_refresh,
     mo,
@@ -498,7 +497,7 @@ def _(
     _trip = Trip(
         name=_name,
         legs=_legs,
-        gas_price_per_km=gas_price_slider.value,
+        gas_price=gas_price_input.value,
         activities=_activities,
         booking_urls=_urls,
         id=editing_trip.id if editing_trip else str(uuid.uuid4()),
@@ -645,9 +644,11 @@ def _(find_trip_by_id, get_preview_id, mo, set_preview_id):
         urls_md = (
             "\n".join(
                 [
-                    f"- [{url[:50]}...]({url})"
-                    if len(url) > 50
-                    else f"- [{url}]({url})"
+                    (
+                        f"- [{url[:50]}...]({url})"
+                        if len(url) > 50
+                        else f"- [{url}]({url})"
+                    )
                     for url in preview_trip.booking_urls
                 ]
             )
@@ -662,17 +663,21 @@ def _(find_trip_by_id, get_preview_id, mo, set_preview_id):
                     justify="space-between",
                 ),
                 mo.md("### 🛣️ Legs"),
-                mo.ui.table(legs_rows, selection=None)
-                if legs_rows
-                else mo.md("*No legs*"),
-                mo.md(f"""
+                (
+                    mo.ui.table(legs_rows, selection=None)
+                    if legs_rows
+                    else mo.md("*No legs*")
+                ),
+                mo.md(
+                    f"""
 ### 💰 Cost Summary
 | ⛽ Fuel | 🛏️ Sleeping | 🍔 Food | **Total** |
 |--------|-------------|---------|-----------|
 | ${preview_trip.fuel_cost:.2f} | ${preview_trip.total_sleeping_cost:.0f} | ${preview_trip.total_food_cost:.0f} | **${preview_trip.total_price:.2f}** |
 
-*Gas price: ${preview_trip.gas_price_per_km:.2f}/km × {preview_trip.total_distance_km:.0f} km*
-"""),
+*Gas price: ${preview_trip.gas_price:.2f} × {preview_trip.total_distance_km:.0f} km*
+"""
+                ),
                 mo.md(
                     f"### 🎯 Activities\n{', '.join(preview_trip.activities) if preview_trip.activities else '*No activities*'}"
                 ),
