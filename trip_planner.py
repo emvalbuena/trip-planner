@@ -385,36 +385,18 @@ def _(
     fuel_price_slider,
     get_legs,
     mo,
-    set_legs,
 ):
-    # Display current legs with remove buttons
+    # Display current legs
     current_legs = get_legs()
-
-    def make_remove_handler(idx):
-        def handler(_):
-            legs = get_legs()
-            set_legs(legs[:idx] + legs[idx + 1 :])
-
-        return handler
 
     legs_display = []
     for i, leg in enumerate(current_legs):
-        remove_btn = mo.ui.button(label="❌", on_click=make_remove_handler(i))
-        leg_content = mo.vstack(
-            [
-                mo.md(f"**{leg['name']}**"),
-                mo.md(f"📏 {leg['distance_km']}km · ⏱️ {leg['travel_time_hours']}h"),
-                mo.md(f"🛏️ €{leg['sleeping_cost']} · 🍔 €{leg['food_cost']}"),
-            ],
-            gap=0,
+        leg_content = mo.md(
+            f"**{i + 1}. {leg['name']}** — "
+            f"📏 {leg['distance_km']}km · ⏱️ {leg['travel_time_hours']}h · "
+            f"🛏️ €{leg['sleeping_cost']} · 🍔 €{leg['food_cost']}"
         )
-        legs_display.append(
-            mo.hstack(
-                [leg_content, remove_btn],
-                justify="space-between",
-                align="start",
-            )
-        )
+        legs_display.append(leg_content)
 
     total_km = sum(leg["distance_km"] for leg in current_legs)
     total_hours = sum(leg["travel_time_hours"] for leg in current_legs)
@@ -437,7 +419,6 @@ def _(
         fuel_cost,
         legs_display,
         legs_summary,
-        make_remove_handler,
         total_cost,
         total_food,
         total_hours,
