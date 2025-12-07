@@ -1,4 +1,4 @@
 .PHONY: run
 
 run:
-	uv run marimo edit trip_planner.py
+	uv run marimo run trip_planner.py
