@@ -42,7 +42,7 @@ def _(dataclass, field, uuid):
     class Trip:
         name: str
         legs: list[Leg] = field(default_factory=list)
-        fuel_price_per_100km: float = 15.0
+        fuel_price_per_100km: float = 1.6
         activities: list[str] = field(default_factory=list)
         booking_urls: list[str] = field(default_factory=list)
         id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -135,7 +135,7 @@ def _(Leg, Path, Trip, asdict, json, re):
                     food_cost=old_price.get("food", 0),
                 )
             ]
-            return Trip(legs=legs, fuel_price_per_100km=15.0, **data)
+            return Trip(legs=legs, fuel_price_per_100km=1.6, **data)
 
         # Handle legacy format (v2: trip-level costs)
         if "price_sleeping" in data or "price_food" in data:
@@ -160,7 +160,7 @@ def _(Leg, Path, Trip, asdict, json, re):
                 )
                 for leg in legs_data
             ]
-            return Trip(legs=legs, fuel_price_per_100km=15.0, **data)
+            return Trip(legs=legs, fuel_price_per_100km=1.6, **data)
 
         # Current format
         legs_data = data.pop("legs", [])
@@ -283,10 +283,10 @@ def _(editing_trip, mo):
         full_width=True,
     )
     fuel_price_slider = mo.ui.slider(
-        value=editing_trip.fuel_price_per_100km if editing_trip else 15.0,
-        start=5,
-        stop=50,
-        step=1,
+        value=editing_trip.fuel_price_per_100km if editing_trip else 1.6,
+        start=0.5,
+        stop=2.5,
+        step=0.05,
         label="⛽ Fuel Price ($/100km)",
         show_value=True,
     )
