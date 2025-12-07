@@ -25,6 +25,14 @@ def _():
 @app.cell
 def _(dataclass, field, uuid):
     @dataclass
+    class Leg:
+        """A leg of the trip with distance and travel time."""
+
+        name: str
+        distance_km: float
+        travel_time_hours: float
+
+    @dataclass
     class Price:
         fuel: float = 0.0
         sleeping: float = 0.0
@@ -37,21 +45,37 @@ def _(dataclass, field, uuid):
     @dataclass
     class Trip:
         name: str
-        travel_time_hours: float
-        price: Price
+        legs: list[Leg] = field(default_factory=list)
+        gas_price_per_liter: float = 1.5
+        fuel_consumption_per_100km: float = 8.0
+        price_sleeping: float = 0.0
+        price_food: float = 0.0
         activities: list[str] = field(default_factory=list)
         booking_urls: list[str] = field(default_factory=list)
         id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
         @property
-        def total_price(self) -> float:
-            return self.price.total
+        def total_distance_km(self) -> float:
+            return sum(leg.distance_km for leg in self.legs)
 
-    return Price, Trip
+        @property
+        def total_travel_time_hours(self) -> float:
+            return sum(leg.travel_time_hours for leg in self.legs)
+
+        @property
+        def fuel_cost(self) -> float:
+            liters = (self.total_distance_km / 100) * self.fuel_consumption_per_100km
+            return liters * self.gas_price_per_liter
+
+        @property
+        def total_price(self) -> float:
+            return self.fuel_cost + self.price_sleeping + self.price_food
+
+    return Leg, Price, Trip
 
 
 @app.cell
-def _(Path, Price, Trip, asdict, json, re):
+def _(Leg, Path, Trip, asdict, json, re):
     TRIPS_FOLDER = Path("trips")
 
     def slugify(text: str) -> str:
@@ -72,6 +96,10 @@ def _(Path, Price, Trip, asdict, json, re):
         folder.mkdir(exist_ok=True)
         filepath = folder / get_trip_filename(trip)
         data = asdict(trip)
+        # Store computed values in JSON for easy reading
+        data["total_distance_km"] = trip.total_distance_km
+        data["total_travel_time_hours"] = trip.total_travel_time_hours
+        data["fuel_cost"] = trip.fuel_cost
         data["total_price"] = trip.total_price
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
@@ -81,9 +109,32 @@ def _(Path, Price, Trip, asdict, json, re):
         """Load a trip from a JSON file."""
         with open(filepath) as f:
             data = json.load(f)
+        # Remove computed fields
+        data.pop("total_distance_km", None)
+        data.pop("total_travel_time_hours", None)
+        data.pop("fuel_cost", None)
         data.pop("total_price", None)
-        price_data = data.pop("price")
-        return Trip(price=Price(**price_data), **data)
+
+        # Handle legacy format (pre-legs)
+        if "price" in data:
+            # Old format: convert to new format
+            old_price = data.pop("price")
+            travel_time = data.pop("travel_time_hours", 0)
+            # Create a single leg from old data
+            legs = [Leg(name="Trip", distance_km=0, travel_time_hours=travel_time)]
+            return Trip(
+                legs=legs,
+                gas_price_per_liter=1.5,
+                fuel_consumption_per_100km=8.0,
+                price_sleeping=old_price.get("sleeping", 0),
+                price_food=old_price.get("food", 0),
+                **data,
+            )
+
+        # New format: convert legs dicts to Leg objects
+        legs_data = data.pop("legs", [])
+        legs = [Leg(**leg) for leg in legs_data]
+        return Trip(legs=legs, **data)
 
     def load_all_trips(folder: Path = TRIPS_FOLDER) -> list[Trip]:
         """Load all trips from a folder."""
@@ -130,7 +181,7 @@ def _(Path, Price, Trip, asdict, json, re):
 
 @app.cell
 def _(mo):
-    mo.md("# Trip Planner")
+    mo.md("# 🧳 Trip Planner")
     return
 
 
@@ -139,97 +190,218 @@ def _(mo):
     # State for tracking which trip to edit and refresh trigger
     get_edit_id, set_edit_id = mo.state(None)
     get_refresh, set_refresh = mo.state(0)
-    return get_edit_id, get_refresh, set_edit_id, set_refresh
+    # State for managing legs
+    get_legs, set_legs = mo.state([])
+    return get_edit_id, get_legs, get_refresh, set_edit_id, set_legs, set_refresh
 
 
 @app.cell
-def _(find_trip_by_id, get_edit_id):
+def _(find_trip_by_id, get_edit_id, set_legs):
     # Load trip being edited (if any)
     _edit_id = get_edit_id()
     editing_trip = find_trip_by_id(_edit_id) if _edit_id else None
+    # Sync legs state when editing
+    if editing_trip:
+        set_legs(
+            [
+                {
+                    "name": leg.name,
+                    "distance_km": leg.distance_km,
+                    "travel_time_hours": leg.travel_time_hours,
+                }
+                for leg in editing_trip.legs
+            ]
+        )
     return (editing_trip,)
 
 
 @app.cell
 def _(editing_trip, mo):
     # Form UI elements
-    form_title = "Edit Trip" if editing_trip else "Create New Trip"
+    form_title = "✏️ Edit Trip" if editing_trip else "➕ Create New Trip"
 
     name_input = mo.ui.text(
         value=editing_trip.name if editing_trip else "",
-        label="Trip Name",
+        label="🏷️ Trip Name",
         full_width=True,
     )
-    travel_time_input = mo.ui.number(
-        value=editing_trip.travel_time_hours if editing_trip else 0,
-        start=0,
-        stop=1000,
-        step=0.5,
-        label="Travel Time (hours)",
+    gas_price_slider = mo.ui.slider(
+        value=editing_trip.gas_price_per_liter if editing_trip else 1.5,
+        start=0.5,
+        stop=3.0,
+        step=0.1,
+        label="⛽ Gas Price ($/L)",
+        show_value=True,
     )
-    fuel_input = mo.ui.number(
-        value=editing_trip.price.fuel if editing_trip else 0,
-        start=0,
-        step=10,
-        label="Fuel ($)",
+    fuel_consumption_input = mo.ui.number(
+        value=editing_trip.fuel_consumption_per_100km if editing_trip else 8.0,
+        start=3.0,
+        stop=20.0,
+        step=0.5,
+        label="🚗 Fuel Consumption (L/100km)",
     )
     sleeping_input = mo.ui.number(
-        value=editing_trip.price.sleeping if editing_trip else 0,
+        value=editing_trip.price_sleeping if editing_trip else 0,
         start=0,
         step=10,
-        label="Sleeping ($)",
+        label="🛏️ Sleeping ($)",
     )
     food_input = mo.ui.number(
-        value=editing_trip.price.food if editing_trip else 0,
+        value=editing_trip.price_food if editing_trip else 0,
         start=0,
         step=10,
-        label="Food ($)",
+        label="🍔 Food ($)",
     )
     activities_input = mo.ui.text_area(
         value=", ".join(editing_trip.activities) if editing_trip else "",
-        label="Activities (comma-separated)",
+        label="🎯 Activities (comma-separated)",
         full_width=True,
     )
     booking_urls_input = mo.ui.text_area(
         value="\n".join(editing_trip.booking_urls) if editing_trip else "",
-        label="Booking URLs (one per line)",
+        label="🔗 Booking URLs (one per line)",
         full_width=True,
     )
-    save_button = mo.ui.run_button(label="Save Trip")
+    save_button = mo.ui.run_button(label="💾 Save Trip")
     return (
         activities_input,
         booking_urls_input,
         food_input,
         form_title,
-        fuel_input,
+        fuel_consumption_input,
+        gas_price_slider,
         name_input,
         save_button,
         sleeping_input,
-        travel_time_input,
+    )
+
+
+@app.cell
+def _(get_legs, mo, set_legs):
+    # Leg management UI
+    leg_name_input = mo.ui.text(label="📍 Leg Name", placeholder="e.g., Home → Paris")
+    leg_distance_input = mo.ui.number(
+        value=0, start=0, step=10, label="📏 Distance (km)"
+    )
+    leg_time_input = mo.ui.number(value=0, start=0, step=0.5, label="⏱️ Time (hours)")
+
+    def add_leg(_):
+        if leg_name_input.value.strip():
+            current = get_legs()
+            set_legs(
+                current
+                + [
+                    {
+                        "name": leg_name_input.value.strip(),
+                        "distance_km": leg_distance_input.value,
+                        "travel_time_hours": leg_time_input.value,
+                    }
+                ]
+            )
+
+    add_leg_button = mo.ui.button(label="➕ Add Leg", on_click=add_leg)
+
+    def clear_legs(_):
+        set_legs([])
+
+    clear_legs_button = mo.ui.button(
+        label="🗑️ Clear All Legs", kind="warn", on_click=clear_legs
+    )
+
+    return (
+        add_leg_button,
+        clear_legs_button,
+        leg_distance_input,
+        leg_name_input,
+        leg_time_input,
+    )
+
+
+@app.cell
+def _(get_legs, mo, set_legs):
+    # Display current legs with remove buttons
+    current_legs = get_legs()
+
+    def make_remove_handler(idx):
+        def handler(_):
+            legs = get_legs()
+            set_legs(legs[:idx] + legs[idx + 1 :])
+
+        return handler
+
+    legs_display = []
+    for i, leg in enumerate(current_legs):
+        remove_btn = mo.ui.button(label="❌", on_click=make_remove_handler(i))
+        legs_display.append(
+            mo.hstack(
+                [
+                    mo.md(
+                        f"**{leg['name']}**: {leg['distance_km']} km, {leg['travel_time_hours']}h"
+                    ),
+                    remove_btn,
+                ],
+                justify="space-between",
+            )
+        )
+
+    total_km = sum(leg["distance_km"] for leg in current_legs)
+    total_hours = sum(leg["travel_time_hours"] for leg in current_legs)
+
+    legs_summary = (
+        mo.md(f"**📊 Total:** {total_km} km, {total_hours}h")
+        if current_legs
+        else mo.md("*No legs added yet*")
+    )
+    return (
+        current_legs,
+        legs_display,
+        legs_summary,
+        make_remove_handler,
+        total_hours,
+        total_km,
     )
 
 
 @app.cell
 def _(
     activities_input,
+    add_leg_button,
     booking_urls_input,
+    clear_legs_button,
     food_input,
     form_title,
-    fuel_input,
+    fuel_consumption_input,
+    gas_price_slider,
+    leg_distance_input,
+    leg_name_input,
+    leg_time_input,
+    legs_display,
+    legs_summary,
     mo,
     name_input,
     save_button,
     sleeping_input,
-    travel_time_input,
 ):
     # Display form
     mo.vstack(
         [
             mo.md(f"## {form_title}"),
             name_input,
-            travel_time_input,
-            mo.md("### Price Breakdown"),
-            mo.hstack([fuel_input, sleeping_input, food_input], justify="start", gap=1),
+            mo.md("### 🛣️ Trip Legs"),
+            mo.hstack(
+                [leg_name_input, leg_distance_input, leg_time_input, add_leg_button],
+                justify="start",
+                gap=1,
+            ),
+            mo.vstack(legs_display, gap=0.25) if legs_display else mo.md(""),
+            mo.hstack([legs_summary, clear_legs_button], justify="space-between")
+            if legs_display
+            else legs_summary,
+            mo.md("### 💰 Costs"),
+            mo.hstack(
+                [gas_price_slider, fuel_consumption_input], justify="start", gap=2
+            ),
+            mo.hstack([sleeping_input, food_input], justify="start", gap=1),
             activities_input,
             booking_urls_input,
             save_button,
@@ -241,22 +413,24 @@ def _(
 
 @app.cell
 def _(
-    Price,
+    Leg,
     Trip,
     activities_input,
     booking_urls_input,
     editing_trip,
     food_input,
-    fuel_input,
+    fuel_consumption_input,
+    gas_price_slider,
+    get_legs,
     get_refresh,
     mo,
     name_input,
     save_button,
     save_trip,
     set_edit_id,
+    set_legs,
     set_refresh,
     sleeping_input,
-    travel_time_input,
     uuid,
 ):
     # Handle save
@@ -264,19 +438,30 @@ def _(
 
     _name = name_input.value.strip()
     if not _name:
-        mo.stop(True, mo.md("**Error:** Please enter a trip name."))
+        mo.stop(True, mo.md("**❌ Error:** Please enter a trip name."))
 
+    _legs_data = get_legs()
+    if not _legs_data:
+        mo.stop(True, mo.md("**❌ Error:** Please add at least one leg."))
+
+    _legs = [
+        Leg(
+            name=leg["name"],
+            distance_km=leg["distance_km"],
+            travel_time_hours=leg["travel_time_hours"],
+        )
+        for leg in _legs_data
+    ]
     _activities = [a.strip() for a in activities_input.value.split(",") if a.strip()]
     _urls = [u.strip() for u in booking_urls_input.value.split("\n") if u.strip()]
 
     _trip = Trip(
         name=_name,
-        travel_time_hours=travel_time_input.value,
-        price=Price(
-            fuel=fuel_input.value,
-            sleeping=sleeping_input.value,
-            food=food_input.value,
-        ),
+        legs=_legs,
+        gas_price_per_liter=gas_price_slider.value,
+        fuel_consumption_per_100km=fuel_consumption_input.value,
+        price_sleeping=sleeping_input.value,
+        price_food=food_input.value,
         activities=_activities,
         booking_urls=_urls,
         id=editing_trip.id if editing_trip else str(uuid.uuid4()),
@@ -284,22 +469,27 @@ def _(
 
     _path = save_trip(_trip)
     set_edit_id(None)
+    set_legs([])
     set_refresh(get_refresh() + 1)
 
-    mo.md(f"**Saved:** {_trip.name} to `{_path}`")
+    mo.md(f"**✅ Saved:** {_trip.name} to `{_path}`")
     return
 
 
 @app.cell
-def _(editing_trip, mo, set_edit_id):
+def _(editing_trip, mo, set_edit_id, set_legs):
     # Cancel button (only shown when editing)
+    def cancel_edit(_):
+        set_edit_id(None)
+        set_legs([])
+
     cancel_button = mo.ui.button(
-        label="Cancel Edit",
+        label="❌ Cancel Edit",
         kind="warn",
-        on_click=lambda _: set_edit_id(None),
+        on_click=cancel_edit,
     )
     mo.md("") if not editing_trip else cancel_button
-    return (cancel_button,)
+    return cancel_button, cancel_edit
 
 
 @app.cell
@@ -308,9 +498,9 @@ def _(get_refresh, load_all_trips, mo):
     _ = get_refresh()
     all_trips = load_all_trips()
     mo.md(
-        f"---\n## Saved Trips ({len(all_trips)} trips)"
+        f"---\n## 📋 Saved Trips ({len(all_trips)})"
         if all_trips
-        else "---\n## Saved Trips\n\n*No trips saved yet.*"
+        else "---\n## 📋 Saved Trips\n\n*No trips saved yet.*"
     )
     return (all_trips,)
 
@@ -322,11 +512,25 @@ def _(
     get_refresh,
     mo,
     set_edit_id,
+    set_legs,
     set_refresh,
 ):
     # Trips table with actions
-    def _make_edit_handler(tid):
-        return lambda _: set_edit_id(tid)
+    def _make_edit_handler(trip):
+        def handler(_):
+            set_edit_id(trip.id)
+            set_legs(
+                [
+                    {
+                        "name": leg.name,
+                        "distance_km": leg.distance_km,
+                        "travel_time_hours": leg.travel_time_hours,
+                    }
+                    for leg in trip.legs
+                ]
+            )
+
+        return handler
 
     def _make_delete_handler(tid):
         def handler(_):
@@ -339,24 +543,25 @@ def _(
         _rows = []
         for _trip in all_trips:
             _edit_btn = mo.ui.button(
-                label="Edit",
-                on_click=_make_edit_handler(_trip.id),
+                label="✏️",
+                on_click=_make_edit_handler(_trip),
             )
             _del_btn = mo.ui.button(
-                label="Delete",
+                label="🗑️",
                 kind="danger",
                 on_click=_make_delete_handler(_trip.id),
             )
             _rows.append(
                 {
-                    "Name": _trip.name,
-                    "Travel (h)": _trip.travel_time_hours,
-                    "Fuel ($)": _trip.price.fuel,
-                    "Sleep ($)": _trip.price.sleeping,
-                    "Food ($)": _trip.price.food,
-                    "Total ($)": _trip.total_price,
-                    "Activities": ", ".join(_trip.activities) or "-",
-                    "URLs": len(_trip.booking_urls),
+                    "🏷️ Name": _trip.name,
+                    "📏 Distance": f"{_trip.total_distance_km} km",
+                    "⏱️ Time": f"{_trip.total_travel_time_hours}h",
+                    "⛽ Fuel": f"${_trip.fuel_cost:.2f}",
+                    "🛏️ Sleep": f"${_trip.price_sleeping:.2f}",
+                    "🍔 Food": f"${_trip.price_food:.2f}",
+                    "💰 Total": f"${_trip.total_price:.2f}",
+                    "🎯 Activities": ", ".join(_trip.activities) or "-",
+                    "🔗 URLs": len(_trip.booking_urls),
                     "Actions": mo.hstack([_edit_btn, _del_btn], gap=0.5),
                 }
             )
@@ -367,7 +572,7 @@ def _(
 
 @app.cell
 def _(mo):
-    mo.md("---\n## Comparison\n\n*Comparison features coming soon...*")
+    mo.md("---\n## 📊 Comparison\n\n*Comparison features coming soon...*")
     return
 
 
