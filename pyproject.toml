@@ -1,0 +1,16 @@
+[project]
+name = "trip-planner"
+version = "0.1.0"
+description = "Compare trips by price, travel time, and activities"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["marimo>=0.10.0"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pyright]
+pythonVersion = "3.13"
