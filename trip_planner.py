@@ -407,9 +407,16 @@ def _(
     total_cost = fuel_cost + total_sleeping + total_food
 
     legs_summary = (
-        mo.md(
-            f"**📊 Totals:** {total_km}km, {total_hours}h | "
-            f"⛽ €{fuel_cost:.2f} + 🛏️ €{total_sleeping} + 🍔 €{total_food} = **💰 €{total_cost:.2f}**"
+        mo.hstack(
+            [
+                mo.stat(label="Distance", value=f"{total_km} km"),
+                mo.stat(label="Time", value=f"{total_hours} h"),
+                mo.stat(label="Fuel", value=f"€{fuel_cost:.2f}"),
+                mo.stat(label="Sleeping", value=f"€{total_sleeping:.0f}"),
+                mo.stat(label="Food", value=f"€{total_food:.0f}"),
+                mo.stat(label="Total", value=f"€{total_cost:.2f}", bordered=True),
+            ],
+            justify="space-around",
         )
         if current_legs
         else mo.md("*No legs added yet*")
