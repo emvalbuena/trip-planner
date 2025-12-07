@@ -1,5 +1,8 @@
 # AGENTS.md
 
+## Workflow
+- Always commit after making changes
+
 ## Build/Test Commands
 - Install deps: `uv sync`
 - Run marimo notebook: `uv run marimo edit <notebook.py>`
