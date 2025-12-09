@@ -1,19 +1,16 @@
-"""Tests for trip planner data models and functions."""
+"""Tests for road trip planner data models and functions."""
 
-import json
 import uuid
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
-
-import pytest
 
 
 # Copy dataclasses from trip_planner.py for testing
 @dataclass
 class Leg:
-    """A leg of the trip with distance, time, and costs."""
+    """A leg of the road trip with origin, destination, distance, and time."""
 
-    name: str
+    origin: str
+    destination: str
     distance_km: float
     travel_time_hours: float
     sleeping_cost: float = 0.0
@@ -31,6 +28,7 @@ class Trip:
     legs: list[Leg] = field(default_factory=list)
     fuel_price_per_litre: float = 1.6
     fuel_consumption_per_100km: float = 7.0
+    num_people: int = 1
     activities: list[str] = field(default_factory=list)
     booking_urls: list[str] = field(default_factory=list)
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -42,6 +40,16 @@ class Trip:
     @property
     def total_travel_time_hours(self) -> float:
         return sum(leg.travel_time_hours for leg in self.legs)
+
+    @property
+    def route_waypoints(self) -> list[str]:
+        """Get ordered list of waypoints from all legs."""
+        if not self.legs:
+            return []
+        waypoints = [self.legs[0].origin]
+        for leg in self.legs:
+            waypoints.append(leg.destination)
+        return waypoints
 
     @property
     def fuel_cost(self) -> float:
@@ -60,13 +68,21 @@ class Trip:
     def total_price(self) -> float:
         return self.fuel_cost + self.total_sleeping_cost + self.total_food_cost
 
+    @property
+    def cost_per_person(self) -> float:
+        """Total cost divided by number of travelers."""
+        return self.total_price / self.num_people
+
 
 class TestLeg:
     """Tests for Leg dataclass."""
 
     def test_leg_creation(self):
-        leg = Leg(name="Home → Paris", distance_km=500, travel_time_hours=5)
-        assert leg.name == "Home → Paris"
+        leg = Leg(
+            origin="Home", destination="Paris", distance_km=500, travel_time_hours=5
+        )
+        assert leg.origin == "Home"
+        assert leg.destination == "Paris"
         assert leg.distance_km == 500
         assert leg.travel_time_hours == 5
         assert leg.sleeping_cost == 0.0
@@ -74,7 +90,8 @@ class TestLeg:
 
     def test_leg_with_costs(self):
         leg = Leg(
-            name="Paris → Lyon",
+            origin="Paris",
+            destination="Lyon",
             distance_km=450,
             travel_time_hours=4.5,
             sleeping_cost=100,
@@ -85,7 +102,8 @@ class TestLeg:
 
     def test_leg_total_cost(self):
         leg = Leg(
-            name="Test",
+            origin="A",
+            destination="B",
             distance_km=100,
             travel_time_hours=1,
             sleeping_cost=80,
@@ -103,14 +121,19 @@ class TestTrip:
         assert trip.legs == []
         assert trip.fuel_price_per_litre == 1.6
         assert trip.fuel_consumption_per_100km == 7.0
+        assert trip.num_people == 1
         assert trip.activities == []
         assert trip.booking_urls == []
         assert trip.id is not None
 
     def test_trip_with_legs(self):
         legs = [
-            Leg(name="Leg 1", distance_km=200, travel_time_hours=2),
-            Leg(name="Leg 2", distance_km=300, travel_time_hours=3),
+            Leg(
+                origin="Home", destination="Paris", distance_km=200, travel_time_hours=2
+            ),
+            Leg(
+                origin="Paris", destination="Lyon", distance_km=300, travel_time_hours=3
+            ),
         ]
         trip = Trip(name="Road Trip", legs=legs)
         assert len(trip.legs) == 2
@@ -119,7 +142,9 @@ class TestTrip:
 
     def test_fuel_cost_calculation(self):
         """Test: fuel_cost = (km / 100) * consumption * price_per_litre."""
-        legs = [Leg(name="Test", distance_km=1000, travel_time_hours=10)]
+        legs = [
+            Leg(origin="A", destination="B", distance_km=1000, travel_time_hours=10)
+        ]
         trip = Trip(
             name="Test Trip",
             legs=legs,
@@ -133,7 +158,7 @@ class TestTrip:
 
     def test_fuel_cost_with_default_values(self):
         """Test fuel cost with default fuel price (1.6) and consumption (7.0)."""
-        legs = [Leg(name="Test", distance_km=500, travel_time_hours=5)]
+        legs = [Leg(origin="A", destination="B", distance_km=500, travel_time_hours=5)]
         trip = Trip(name="Test Trip", legs=legs)
         # 500 km / 100 = 5 units
         # 5 * 7.0 = 35 litres
@@ -142,16 +167,40 @@ class TestTrip:
 
     def test_total_sleeping_cost(self):
         legs = [
-            Leg(name="L1", distance_km=100, travel_time_hours=1, sleeping_cost=50),
-            Leg(name="L2", distance_km=100, travel_time_hours=1, sleeping_cost=75),
+            Leg(
+                origin="A",
+                destination="B",
+                distance_km=100,
+                travel_time_hours=1,
+                sleeping_cost=50,
+            ),
+            Leg(
+                origin="B",
+                destination="C",
+                distance_km=100,
+                travel_time_hours=1,
+                sleeping_cost=75,
+            ),
         ]
         trip = Trip(name="Test", legs=legs)
         assert trip.total_sleeping_cost == 125
 
     def test_total_food_cost(self):
         legs = [
-            Leg(name="L1", distance_km=100, travel_time_hours=1, food_cost=30),
-            Leg(name="L2", distance_km=100, travel_time_hours=1, food_cost=45),
+            Leg(
+                origin="A",
+                destination="B",
+                distance_km=100,
+                travel_time_hours=1,
+                food_cost=30,
+            ),
+            Leg(
+                origin="B",
+                destination="C",
+                distance_km=100,
+                travel_time_hours=1,
+                food_cost=45,
+            ),
         ]
         trip = Trip(name="Test", legs=legs)
         assert trip.total_food_cost == 75
@@ -160,7 +209,8 @@ class TestTrip:
         """Test total price = fuel + sleeping + food."""
         legs = [
             Leg(
-                name="L1",
+                origin="A",
+                destination="B",
                 distance_km=500,
                 travel_time_hours=5,
                 sleeping_cost=100,
@@ -204,18 +254,98 @@ class TestTrip:
         assert trip.total_food_cost == 0
         assert trip.total_price == 0.0
 
+    def test_route_waypoints(self):
+        """Test route waypoints extraction."""
+        legs = [
+            Leg(
+                origin="Paris",
+                destination="Lyon",
+                distance_km=450,
+                travel_time_hours=4.5,
+            ),
+            Leg(
+                origin="Lyon", destination="Nice", distance_km=300, travel_time_hours=3
+            ),
+            Leg(
+                origin="Nice",
+                destination="Barcelona",
+                distance_km=500,
+                travel_time_hours=5,
+            ),
+        ]
+        trip = Trip(name="France to Spain", legs=legs)
+        assert trip.route_waypoints == ["Paris", "Lyon", "Nice", "Barcelona"]
+
+    def test_route_waypoints_empty(self):
+        """Test route waypoints with no legs."""
+        trip = Trip(name="Empty")
+        assert trip.route_waypoints == []
+
+    def test_num_people_default(self):
+        """Test default number of people is 1."""
+        trip = Trip(name="Solo Trip")
+        assert trip.num_people == 1
+
+    def test_cost_per_person_single(self):
+        """Test cost per person with single traveler."""
+        legs = [
+            Leg(
+                origin="A",
+                destination="B",
+                distance_km=500,
+                travel_time_hours=5,
+                sleeping_cost=100,
+                food_cost=50,
+            ),
+        ]
+        trip = Trip(
+            name="Test",
+            legs=legs,
+            fuel_price_per_litre=2.0,
+            fuel_consumption_per_100km=10.0,
+            num_people=1,
+        )
+        # Total: 250 € / 1 person = 250 €
+        assert trip.cost_per_person == 250.0
+
+    def test_cost_per_person_multiple(self):
+        """Test cost per person with multiple travelers."""
+        legs = [
+            Leg(
+                origin="A",
+                destination="B",
+                distance_km=500,
+                travel_time_hours=5,
+                sleeping_cost=100,
+                food_cost=50,
+            ),
+        ]
+        trip = Trip(
+            name="Test",
+            legs=legs,
+            fuel_price_per_litre=2.0,
+            fuel_consumption_per_100km=10.0,
+            num_people=5,
+        )
+        # Total: 250 € / 5 people = 50 €
+        assert trip.cost_per_person == 50.0
+
 
 class TestTripSerialization:
     """Tests for Trip serialization to/from dict."""
 
     def test_trip_to_dict(self):
-        leg = Leg(name="Test Leg", distance_km=100, travel_time_hours=1)
+        leg = Leg(
+            origin="Home", destination="Paris", distance_km=100, travel_time_hours=1
+        )
         trip = Trip(name="Test Trip", legs=[leg], id="test-id-123")
         data = asdict(trip)
 
         assert data["name"] == "Test Trip"
         assert data["id"] == "test-id-123"
+        assert data["num_people"] == 1
         assert len(data["legs"]) == 1
-        assert data["legs"][0]["name"] == "Test Leg"
+        assert data["legs"][0]["origin"] == "Home"
+        assert data["legs"][0]["destination"] == "Paris"
         assert data["fuel_price_per_litre"] == 1.6
         assert data["fuel_consumption_per_100km"] == 7.0

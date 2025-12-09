@@ -1,0 +1,44 @@
+{
+  "name": "Bizkaia",
+  "legs": [
+    {
+      "origin": "Hondarribia",
+      "destination": "Bilbao",
+      "distance_km": 100,
+      "travel_time_hours": 2,
+      "sleeping_cost": 0,
+      "food_cost": 0
+    },
+    {
+      "origin": "Bilbao",
+      "destination": "Hondarribia",
+      "distance_km": 100,
+      "travel_time_hours": 2,
+      "sleeping_cost": 0,
+      "food_cost": 0
+    }
+  ],
+  "fuel_price_per_litre": 1.6,
+  "fuel_consumption_per_100km": 6.0,
+  "num_people": 2,
+  "activities": [
+    "Mago de Oz",
+    "Garbeia (mendia)"
+  ],
+  "booking_urls": [],
+  "id": "dead48ad-3675-49b5-8780-91623857b503",
+  "total_distance_km": 200,
+  "total_travel_time_hours": 4,
+  "total_driving_breaks": 2,
+  "total_break_time_minutes": 20,
+  "route_waypoints": [
+    "Hondarribia",
+    "Bilbao",
+    "Hondarribia"
+  ],
+  "fuel_cost": 19.200000000000003,
+  "total_sleeping_cost": 0,
+  "total_food_cost": 0,
+  "total_price": 19.200000000000003,
+  "cost_per_person": 9.600000000000001
+}
