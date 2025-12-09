@@ -33,6 +33,7 @@
 - Layout: `mo.hstack()`, `mo.vstack()`, `mo.tabs()` for arranging elements
 - UI elements return values via `.value` attribute
 - Access UI values in separate cells from where they're defined
+- Variables must be unique across cells; use underscore prefix (`_var`) for cell-local variables
 
 ## The Zen of Python
 - Beautiful is better than ugly.
