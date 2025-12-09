@@ -1,0 +1,39 @@
+{
+  "name": "aaaa",
+  "legs": [
+    {
+      "origin": "a",
+      "destination": "b",
+      "distance_km": 240,
+      "travel_time_hours": 5,
+      "sleeping_cost": 20,
+      "food_cost": 60
+    },
+    {
+      "origin": "c",
+      "destination": "d",
+      "distance_km": 350,
+      "travel_time_hours": 2,
+      "sleeping_cost": 70,
+      "food_cost": 60
+    }
+  ],
+  "fuel_price_per_litre": 1.6,
+  "fuel_consumption_per_100km": 7.0,
+  "num_people": 1,
+  "activities": [],
+  "booking_urls": [],
+  "id": "e531d07f-beed-4c9c-9b8e-0fdcfa091e6e",
+  "total_distance_km": 590,
+  "total_travel_time_hours": 7,
+  "route_waypoints": [
+    "a",
+    "b",
+    "d"
+  ],
+  "fuel_cost": 66.08000000000001,
+  "total_sleeping_cost": 90,
+  "total_food_cost": 120,
+  "total_price": 276.08000000000004,
+  "cost_per_person": 276.08000000000004
+}

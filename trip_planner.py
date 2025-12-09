@@ -132,7 +132,7 @@ def _(Leg, Path, Trip, asdict, json, re):
         """Load a trip from a JSON file."""
         with open(filepath) as f:
             data = json.load(f)
-        # Remove computed fields
+        # Remove computed fields and legacy fields
         for key in [
             "total_distance_km",
             "total_travel_time_hours",
@@ -142,10 +142,17 @@ def _(Leg, Path, Trip, asdict, json, re):
             "total_food_cost",
             "total_price",
             "cost_per_person",
+            # Legacy fields (removed from model)
+            "total_driving_breaks",
+            "total_break_time_minutes",
         ]:
             data.pop(key, None)
 
         legs_data = data.pop("legs", [])
+        # Remove legacy fields from legs
+        for leg in legs_data:
+            leg.pop("driving_breaks", None)
+            leg.pop("break_time_minutes", None)
         legs = [Leg(**leg) for leg in legs_data]
         return Trip(legs=legs, **data)
 
@@ -667,7 +674,7 @@ def _(
             )
         trips_table = mo.ui.table(_rows, selection=None)
         trips_table
-    return (trips_table,)
+    return (trips_table,) if all_trips else ()
 
 
 @app.cell
@@ -757,67 +764,67 @@ def _(all_trips, mo):
     if not all_trips:
         mo.md("")
     else:
-        total_trips = len(all_trips)
-        total_distance = sum(t.total_distance_km for t in all_trips)
-        total_time = sum(t.total_travel_time_hours for t in all_trips)
-        total_cost = sum(t.total_price for t in all_trips)
-        avg_cost = total_cost / total_trips if total_trips > 0 else 0
+        _total_trips = len(all_trips)
+        _total_distance = sum(t.total_distance_km for t in all_trips)
+        _total_time = sum(t.total_travel_time_hours for t in all_trips)
+        _total_cost = sum(t.total_price for t in all_trips)
+        _avg_cost = _total_cost / _total_trips if _total_trips > 0 else 0
 
         # Find cheapest and most expensive
-        sorted_by_price = sorted(all_trips, key=lambda t: t.total_price)
-        cheapest = sorted_by_price[0]
-        most_expensive = sorted_by_price[-1] if total_trips > 1 else None
+        _sorted_by_price = sorted(all_trips, key=lambda t: t.total_price)
+        _cheapest = _sorted_by_price[0]
+        _most_expensive = _sorted_by_price[-1] if _total_trips > 1 else None
 
         # Find shortest and longest
-        sorted_by_distance = sorted(all_trips, key=lambda t: t.total_distance_km)
-        shortest = sorted_by_distance[0]
-        longest = sorted_by_distance[-1] if total_trips > 1 else None
+        _sorted_by_distance = sorted(all_trips, key=lambda t: t.total_distance_km)
+        _shortest = _sorted_by_distance[0]
+        _longest = _sorted_by_distance[-1] if _total_trips > 1 else None
 
-        stats_rows = []
-        stats_rows.append(
-            f"| 💰 Cheapest | {cheapest.name} | "
-            f"{cheapest.total_distance_km:.0f} km | €{cheapest.total_price:.2f} |"
+        _stats_rows = []
+        _stats_rows.append(
+            f"| 💰 Cheapest | {_cheapest.name} | "
+            f"{_cheapest.total_distance_km:.0f} km | €{_cheapest.total_price:.2f} |"
         )
-        if most_expensive and most_expensive.id != cheapest.id:
-            stats_rows.append(
-                f"| 💸 Most Expensive | {most_expensive.name} | "
-                f"{most_expensive.total_distance_km:.0f} km | "
-                f"€{most_expensive.total_price:.2f} |"
+        if _most_expensive and _most_expensive.id != _cheapest.id:
+            _stats_rows.append(
+                f"| 💸 Most Expensive | {_most_expensive.name} | "
+                f"{_most_expensive.total_distance_km:.0f} km | "
+                f"€{_most_expensive.total_price:.2f} |"
             )
-        stats_rows.append(
-            f"| 📏 Shortest | {shortest.name} | "
-            f"{shortest.total_distance_km:.0f} km | €{shortest.total_price:.2f} |"
+        _stats_rows.append(
+            f"| 📏 Shortest | {_shortest.name} | "
+            f"{_shortest.total_distance_km:.0f} km | €{_shortest.total_price:.2f} |"
         )
-        if longest and longest.id != shortest.id:
-            stats_rows.append(
-                f"| 🛣️ Longest | {longest.name} | "
-                f"{longest.total_distance_km:.0f} km | €{longest.total_price:.2f} |"
+        if _longest and _longest.id != _shortest.id:
+            _stats_rows.append(
+                f"| 🛣️ Longest | {_longest.name} | "
+                f"{_longest.total_distance_km:.0f} km | €{_longest.total_price:.2f} |"
             )
 
-        stats_table = (
+        _stats_table = (
             "### 🏆 Trip Stats\n"
             "| | Trip | Distance | Cost |\n"
-            "|---|------|----------|------|\n" + "\n".join(stats_rows)
+            "|---|------|----------|------|\n" + "\n".join(_stats_rows)
         )
 
-        summary_content = mo.vstack(
+        _summary_content = mo.vstack(
             [
                 mo.md("---\n## 📊 Trips Summary"),
                 mo.hstack(
                     [
-                        mo.stat(label="Trips", value=str(total_trips)),
-                        mo.stat(label="Distance", value=f"{total_distance:.0f} km"),
-                        mo.stat(label="Time", value=f"{total_time:.1f} h"),
-                        mo.stat(label="Total Cost", value=f"€{total_cost:.2f}"),
-                        mo.stat(label="Avg Cost", value=f"€{avg_cost:.2f}"),
+                        mo.stat(label="Trips", value=str(_total_trips)),
+                        mo.stat(label="Distance", value=f"{_total_distance:.0f} km"),
+                        mo.stat(label="Time", value=f"{_total_time:.1f} h"),
+                        mo.stat(label="Total Cost", value=f"€{_total_cost:.2f}"),
+                        mo.stat(label="Avg Cost", value=f"€{_avg_cost:.2f}"),
                     ],
                     justify="space-around",
                 ),
-                mo.md(stats_table) if total_trips > 1 else mo.md(""),
+                mo.md(_stats_table) if _total_trips > 1 else mo.md(""),
             ],
             gap=0.5,
         )
-        summary_content
+        _summary_content
     return
 
 
