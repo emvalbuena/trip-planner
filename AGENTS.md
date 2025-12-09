@@ -1,7 +1,8 @@
 # AGENTS.md
 
 ## Workflow
-- Always commit after making changes
+- If on `main` branch, always create a new branch before making changes
+- Always commit after making changes using conventional commit pattern with scope (e.g., `feat(api): add endpoint`)
 - Always run tests after making changes: `uv run pytest`
 
 ## Build/Test Commands
