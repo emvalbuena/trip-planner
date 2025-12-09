@@ -35,16 +35,6 @@ def _(dataclass, field, uuid):
         food_cost: float = 0.0
 
         @property
-        def driving_breaks(self) -> int:
-            """Auto-calculate breaks: 1 break per 2 hours of driving."""
-            return int(self.travel_time_hours // 2)
-
-        @property
-        def total_break_time_minutes(self) -> int:
-            """Total break time: 10 minutes per break."""
-            return self.driving_breaks * 10
-
-        @property
         def total_cost(self) -> float:
             """Total cost for this leg (excluding fuel)."""
             return self.sleeping_cost + self.food_cost
@@ -67,16 +57,6 @@ def _(dataclass, field, uuid):
         @property
         def total_travel_time_hours(self) -> float:
             return sum(leg.travel_time_hours for leg in self.legs)
-
-        @property
-        def total_driving_breaks(self) -> int:
-            """Total number of driving breaks across all legs."""
-            return sum(leg.driving_breaks for leg in self.legs)
-
-        @property
-        def total_break_time_minutes(self) -> int:
-            """Total break time in minutes across all legs."""
-            return sum(leg.total_break_time_minutes for leg in self.legs)
 
         @property
         def route_waypoints(self) -> list[str]:
@@ -138,8 +118,6 @@ def _(Leg, Path, Trip, asdict, json, re):
         # Store computed values in JSON for easy reading
         data["total_distance_km"] = trip.total_distance_km
         data["total_travel_time_hours"] = trip.total_travel_time_hours
-        data["total_driving_breaks"] = trip.total_driving_breaks
-        data["total_break_time_minutes"] = trip.total_break_time_minutes
         data["route_waypoints"] = trip.route_waypoints
         data["fuel_cost"] = trip.fuel_cost
         data["total_sleeping_cost"] = trip.total_sleeping_cost
@@ -158,8 +136,6 @@ def _(Leg, Path, Trip, asdict, json, re):
         for key in [
             "total_distance_km",
             "total_travel_time_hours",
-            "total_driving_breaks",
-            "total_break_time_minutes",
             "route_waypoints",
             "fuel_cost",
             "total_sleeping_cost",
@@ -399,18 +375,11 @@ def _(
     # Display current legs
     current_legs = get_legs()
 
-    # Calculate driving breaks (1 break per 2 hours, 10 min each)
-    def calc_breaks(hours: float) -> int:
-        return int(hours // 2)
-
     legs_display = []
     for i, leg in enumerate(current_legs):
-        breaks = calc_breaks(leg["travel_time_hours"])
-        break_info = f"☕ {breaks} breaks ({breaks * 10} min)" if breaks > 0 else ""
         leg_content = mo.md(
             f"**{i + 1}. {leg['origin']} → {leg['destination']}** — "
             f"📏 {leg['distance_km']}km · ⏱️ {leg['travel_time_hours']}h · "
-            f"{break_info + ' · ' if break_info else ''}"
             f"🛏️ €{leg['sleeping_cost']} · 🍔 €{leg['food_cost']}"
         )
         legs_display.append(leg_content)
@@ -424,8 +393,6 @@ def _(
 
     total_km = sum(leg["distance_km"] for leg in current_legs)
     total_hours = sum(leg["travel_time_hours"] for leg in current_legs)
-    total_breaks = sum(calc_breaks(leg["travel_time_hours"]) for leg in current_legs)
-    total_break_minutes = total_breaks * 10
     total_sleeping = sum(leg["sleeping_cost"] for leg in current_legs)
     total_food = sum(leg["food_cost"] for leg in current_legs)
     litres = (total_km / 100) * fuel_consumption_slider.value
@@ -447,10 +414,6 @@ def _(
                     [
                         mo.stat(label="Distance", value=f"{total_km} km"),
                         mo.stat(label="Time", value=f"{total_hours} h"),
-                        mo.stat(
-                            label="Breaks",
-                            value=f"{total_breaks} ({total_break_minutes} min)",
-                        ),
                         mo.stat(label="Fuel", value=f"€{fuel_cost:.2f}"),
                         mo.stat(label="Sleeping", value=f"€{total_sleeping:.0f}"),
                         mo.stat(label="Food", value=f"€{total_food:.0f}"),
@@ -697,7 +660,6 @@ def _(
                     "👥": _trip.num_people,
                     "📏 km": f"{_trip.total_distance_km:.0f}",
                     "⏱️ h": f"{_trip.total_travel_time_hours:.1f}",
-                    "☕": _trip.total_driving_breaks,
                     "💰 Total": f"€{_trip.total_price:.2f}",
                     "👤 /person": f"€{_trip.cost_per_person:.2f}",
                     "": mo.hstack([_preview_btn, _edit_btn, _del_btn], gap=0.25),
@@ -731,7 +693,6 @@ def _(find_trip_by_id, get_preview_id, mo, set_preview_id):
                     "📍 Route": f"{_leg.origin} → {_leg.destination}",
                     "📏 km": f"{_leg.distance_km:.0f}",
                     "⏱️ h": f"{_leg.travel_time_hours:.1f}",
-                    "☕ Breaks": f"{_leg.driving_breaks}",
                     "🛏️ €": f"{_leg.sleeping_cost:.0f}",
                     "🍔 €": f"{_leg.food_cost:.0f}",
                 }
@@ -773,8 +734,6 @@ def _(find_trip_by_id, get_preview_id, mo, set_preview_id):
 | ⛽ | 🛏️ | 🍔 | **Total** | **Per Person** |
 |----|----|----|-----------|----------------|
 | €{preview_trip.fuel_cost:.2f} | €{preview_trip.total_sleeping_cost:.0f} | €{preview_trip.total_food_cost:.0f} | **€{preview_trip.total_price:.2f}** | **€{preview_trip.cost_per_person:.2f}** |
-
-**☕ Breaks:** {preview_trip.total_driving_breaks} ({preview_trip.total_break_time_minutes}m)
 """  # noqa: E501
                 ),
                 mo.md(
@@ -793,8 +752,72 @@ def _(find_trip_by_id, get_preview_id, mo, set_preview_id):
 
 
 @app.cell
-def _(mo):
-    mo.md("---\n## 📊 Comparison\n\n*Comparison features coming soon...*")
+def _(all_trips, mo):
+    # Summary of all saved trips
+    if not all_trips:
+        mo.md("")
+    else:
+        total_trips = len(all_trips)
+        total_distance = sum(t.total_distance_km for t in all_trips)
+        total_time = sum(t.total_travel_time_hours for t in all_trips)
+        total_cost = sum(t.total_price for t in all_trips)
+        avg_cost = total_cost / total_trips if total_trips > 0 else 0
+
+        # Find cheapest and most expensive
+        sorted_by_price = sorted(all_trips, key=lambda t: t.total_price)
+        cheapest = sorted_by_price[0]
+        most_expensive = sorted_by_price[-1] if total_trips > 1 else None
+
+        # Find shortest and longest
+        sorted_by_distance = sorted(all_trips, key=lambda t: t.total_distance_km)
+        shortest = sorted_by_distance[0]
+        longest = sorted_by_distance[-1] if total_trips > 1 else None
+
+        stats_rows = []
+        stats_rows.append(
+            f"| 💰 Cheapest | {cheapest.name} | "
+            f"{cheapest.total_distance_km:.0f} km | €{cheapest.total_price:.2f} |"
+        )
+        if most_expensive and most_expensive.id != cheapest.id:
+            stats_rows.append(
+                f"| 💸 Most Expensive | {most_expensive.name} | "
+                f"{most_expensive.total_distance_km:.0f} km | "
+                f"€{most_expensive.total_price:.2f} |"
+            )
+        stats_rows.append(
+            f"| 📏 Shortest | {shortest.name} | "
+            f"{shortest.total_distance_km:.0f} km | €{shortest.total_price:.2f} |"
+        )
+        if longest and longest.id != shortest.id:
+            stats_rows.append(
+                f"| 🛣️ Longest | {longest.name} | "
+                f"{longest.total_distance_km:.0f} km | €{longest.total_price:.2f} |"
+            )
+
+        stats_table = (
+            "### 🏆 Trip Stats\n"
+            "| | Trip | Distance | Cost |\n"
+            "|---|------|----------|------|\n" + "\n".join(stats_rows)
+        )
+
+        summary_content = mo.vstack(
+            [
+                mo.md("---\n## 📊 Trips Summary"),
+                mo.hstack(
+                    [
+                        mo.stat(label="Trips", value=str(total_trips)),
+                        mo.stat(label="Distance", value=f"{total_distance:.0f} km"),
+                        mo.stat(label="Time", value=f"{total_time:.1f} h"),
+                        mo.stat(label="Total Cost", value=f"€{total_cost:.2f}"),
+                        mo.stat(label="Avg Cost", value=f"€{avg_cost:.2f}"),
+                    ],
+                    justify="space-around",
+                ),
+                mo.md(stats_table) if total_trips > 1 else mo.md(""),
+            ],
+            gap=0.5,
+        )
+        summary_content
     return
 
 

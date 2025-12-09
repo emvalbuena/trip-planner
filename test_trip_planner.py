@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, field
 # Copy dataclasses from trip_planner.py for testing
 @dataclass
 class Leg:
-    """A leg of the road trip with origin, destination, distance, time, and costs."""
+    """A leg of the road trip with origin, destination, distance, and time."""
 
     origin: str
     destination: str
@@ -15,16 +15,6 @@ class Leg:
     travel_time_hours: float
     sleeping_cost: float = 0.0
     food_cost: float = 0.0
-
-    @property
-    def driving_breaks(self) -> int:
-        """Auto-calculate breaks: 1 break per 2 hours of driving."""
-        return int(self.travel_time_hours // 2)
-
-    @property
-    def total_break_time_minutes(self) -> int:
-        """Total break time: 10 minutes per break."""
-        return self.driving_breaks * 10
 
     @property
     def total_cost(self) -> float:
@@ -50,16 +40,6 @@ class Trip:
     @property
     def total_travel_time_hours(self) -> float:
         return sum(leg.travel_time_hours for leg in self.legs)
-
-    @property
-    def total_driving_breaks(self) -> int:
-        """Total number of driving breaks across all legs."""
-        return sum(leg.driving_breaks for leg in self.legs)
-
-    @property
-    def total_break_time_minutes(self) -> int:
-        """Total break time in minutes across all legs."""
-        return sum(leg.total_break_time_minutes for leg in self.legs)
 
     @property
     def route_waypoints(self) -> list[str]:
@@ -130,28 +110,6 @@ class TestLeg:
             food_cost=30,
         )
         assert leg.total_cost == 110
-
-    def test_leg_driving_breaks_calculation(self):
-        """Test driving breaks: 1 break per 2 hours."""
-        # 1 hour = 0 breaks
-        leg1 = Leg(origin="A", destination="B", distance_km=100, travel_time_hours=1)
-        assert leg1.driving_breaks == 0
-        assert leg1.total_break_time_minutes == 0
-
-        # 2 hours = 1 break
-        leg2 = Leg(origin="A", destination="B", distance_km=200, travel_time_hours=2)
-        assert leg2.driving_breaks == 1
-        assert leg2.total_break_time_minutes == 10
-
-        # 5 hours = 2 breaks
-        leg3 = Leg(origin="A", destination="B", distance_km=500, travel_time_hours=5)
-        assert leg3.driving_breaks == 2
-        assert leg3.total_break_time_minutes == 20
-
-        # 8 hours = 4 breaks
-        leg4 = Leg(origin="A", destination="B", distance_km=800, travel_time_hours=8)
-        assert leg4.driving_breaks == 4
-        assert leg4.total_break_time_minutes == 40
 
 
 class TestTrip:
@@ -295,23 +253,6 @@ class TestTrip:
         assert trip.total_sleeping_cost == 0
         assert trip.total_food_cost == 0
         assert trip.total_price == 0.0
-
-    def test_total_driving_breaks(self):
-        """Test total driving breaks across multiple legs."""
-        legs = [
-            Leg(
-                origin="A", destination="B", distance_km=200, travel_time_hours=2
-            ),  # 1 break
-            Leg(
-                origin="B", destination="C", distance_km=400, travel_time_hours=4
-            ),  # 2 breaks
-            Leg(
-                origin="C", destination="D", distance_km=100, travel_time_hours=1
-            ),  # 0 breaks
-        ]
-        trip = Trip(name="Test", legs=legs)
-        assert trip.total_driving_breaks == 3
-        assert trip.total_break_time_minutes == 30
 
     def test_route_waypoints(self):
         """Test route waypoints extraction."""
